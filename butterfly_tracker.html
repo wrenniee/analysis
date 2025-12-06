@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Butterfly Strategy Live Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+        
+        .status {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .status-item {
+            text-align: center;
+        }
+        
+        .status-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+        
+        .status-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .chart-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+        }
+        
+        .chart-container h2 {
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+        
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .position-list {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .position-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .position-item.long {
+            border-left: 4px solid #00ff88;
+        }
+        
+        .position-item.short {
+            border-left: 4px solid #ff3860;
+        }
+        
+        .update-time {
+            text-align: center;
+            opacity: 0.7;
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🦋 Butterfly Strategy Live Tracker</h1>
+            <p>Monitoring Trader: <strong>Annica</strong> (0x689a...779e)</p>
+            <p>Market: Elon Musk Tweets (Dec 9-16, 2025)</p>
+        </div>
+        
+        <div class="status">
+            <div class="status-item">
+                <div class="status-label">Active Positions</div>
+                <div class="status-value" id="activePositions">-</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Total Exposure</div>
+                <div class="status-value" id="totalExposure">$-</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Unrealized PnL</div>
+                <div class="status-value" id="unrealizedPnl">$-</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Strategy Phase</div>
+                <div class="status-value" id="strategyPhase">-</div>
+            </div>
+        </div>
+        
+        <div class="charts-grid">
+            <div class="chart-container">
+                <h2>📊 Net Exposure by Bucket</h2>
+                <canvas id="butterflyChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h2>📈 Position Size Timeline</h2>
+                <canvas id="timelineChart"></canvas>
+            </div>
+            
+            <div class="chart-container full-width">
+                <h2>🎯 Live Positions</h2>
+                <div class="position-list" id="positionList"></div>
+            </div>
+        </div>
+        
+        <div class="update-time">
+            Last Updated: <span id="lastUpdate">-</span>
+        </div>
+    </div>
+    
+    <script>
+        const BACKEND_URL = 'http://localhost:5000';
+        const POLL_INTERVAL = 2000; // 2 seconds
+        
+        let butterflyChart, timelineChart;
+        let historyData = [];
+        
+        // Initialize Charts
+        function initCharts() {
+            const butterflyCtx = document.getElementById('butterflyChart').getContext('2d');
+            butterflyChart = new Chart(butterflyCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Net Exposure (Shares)',
+                        data: [],
+                        backgroundColor: [],
+                        borderColor: '#fff',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#fff' } }
+                    }
+                }
+            });
+            
+            const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+            timelineChart = new Chart(timelineCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#fff' } }
+                    }
+                }
+            });
+        }
+        
+        // Fetch Positions
+        async function fetchPositions() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/current`);
+                const data = await response.json();
+                
+                if (data.positions) {
+                    updateUI(data.positions);
+                }
+                
+            } catch (error) {
+                console.error('Error fetching positions:', error);
+                document.getElementById('strategyPhase').textContent = 'OFFLINE';
+            }
+        }
+        
+        // Fetch Timeline
+        async function fetchTimeline() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/timeline`);
+                const data = await response.json();
+                
+                if (data.timestamps) {
+                    historyData = data.timestamps.map((ts, idx) => ({
+                        time: new Date(ts).toLocaleTimeString(),
+                        positions: Object.fromEntries(
+                            Object.entries(data.buckets).map(([bucket, values]) => [bucket, values[idx]])
+                        )
+                    }));
+                    updateTimelineChart();
+                }
+                
+            } catch (error) {
+                console.error('Error fetching timeline:', error);
+            }
+        }
+        
+
+        
+        // Update UI
+        function updateUI(positions) {
+            // Update Status
+            document.getElementById('activePositions').textContent = positions.length;
+            
+            const totalValue = positions.reduce((sum, pos) => sum + pos.currentValue, 0);
+            document.getElementById('totalExposure').textContent = `$${totalValue.toFixed(2)}`;
+            
+            const totalPnl = positions.reduce((sum, pos) => sum + pos.cashPnl, 0);
+            document.getElementById('unrealizedPnl').textContent = `$${totalPnl.toFixed(2)}`;
+            
+            // Determine Phase
+            const hasLowNo = positions.some(p => p.outcome === 'No' && p.title.includes('20-') || p.title.includes('100-'));
+            const hasHighYes = positions.some(p => p.outcome === 'Yes' && p.title.includes('200-') || p.title.includes('140-'));
+            
+            let phase = 'UNKNOWN';
+            if (hasLowNo && !hasHighYes) phase = 'PHASE 1: WINGS';
+            else if (hasLowNo && hasHighYes) phase = 'PHASE 3: BODY';
+            document.getElementById('strategyPhase').textContent = phase;
+            
+            // Update Butterfly Chart
+            updateButterflyChart(positions);
+            
+            // Update Timeline Chart
+            updateTimelineChart();
+            
+            // Update Position List
+            updatePositionList(positions);
+            
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleString();
+        }
+        
+        // Update Butterfly Chart
+        function updateButterflyChart(positions) {
+            const bucketMap = {};
+            
+            positions.forEach(pos => {
+                const bucket = pos.title.match(/(\d+-\d+|\d+\+)/)?.[0] || pos.title;
+                const exposure = pos.outcome === 'Yes' ? pos.size : -pos.size;
+                bucketMap[bucket] = (bucketMap[bucket] || 0) + exposure;
+            });
+            
+            const sorted = Object.entries(bucketMap).sort((a, b) => {
+                const getNum = str => parseInt(str.split('-')[0]) || 1000;
+                return getNum(a[0]) - getNum(b[0]);
+            });
+            
+            butterflyChart.data.labels = sorted.map(([bucket]) => bucket);
+            butterflyChart.data.datasets[0].data = sorted.map(([, exposure]) => exposure);
+            butterflyChart.data.datasets[0].backgroundColor = sorted.map(([, exposure]) => 
+                exposure >= 0 ? 'rgba(0, 255, 136, 0.6)' : 'rgba(255, 56, 96, 0.6)'
+            );
+            butterflyChart.update();
+        }
+        
+        // Update Timeline Chart
+        function updateTimelineChart() {
+            if (historyData.length === 0) return;
+            
+            const allBuckets = new Set();
+            historyData.forEach(snapshot => {
+                Object.keys(snapshot.positions).forEach(bucket => allBuckets.add(bucket));
+            });
+            
+            const datasets = Array.from(allBuckets).slice(0, 8).map((bucket, idx) => ({
+                label: bucket,
+                data: historyData.map(s => s.positions[bucket] || 0),
+                borderColor: `hsl(${idx * 45}, 70%, 60%)`,
+                backgroundColor: `hsla(${idx * 45}, 70%, 60%, 0.1)`,
+                tension: 0.4,
+                fill: false
+            }));
+            
+            timelineChart.data.labels = historyData.map(s => s.time);
+            timelineChart.data.datasets = datasets;
+            timelineChart.update();
+        }
+        
+        // Update Position List
+        function updatePositionList(positions) {
+            const list = document.getElementById('positionList');
+            list.innerHTML = '';
+            
+            positions.sort((a, b) => Math.abs(b.size) - Math.abs(a.size)).forEach(pos => {
+                const bucket = pos.title.match(/(\d+-\d+|\d+\+)/)?.[0] || pos.title;
+                const isLong = pos.outcome === 'Yes';
+                
+                const item = document.createElement('div');
+                item.className = `position-item ${isLong ? 'long' : 'short'}`;
+                item.innerHTML = `
+                    <div>
+                        <strong>${bucket}</strong> - ${pos.outcome}
+                        <br><small>${pos.size.toFixed(0)} shares @ $${pos.avgPrice.toFixed(3)}</small>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 1.2rem;">${pos.cashPnl >= 0 ? '+' : ''}$${pos.cashPnl.toFixed(2)}</div>
+                        <small>${pos.percentPnl >= 0 ? '+' : ''}${pos.percentPnl.toFixed(1)}%</small>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+        
+        // Start Polling
+        initCharts();
+        fetchPositions();
+        fetchTimeline();
+        setInterval(fetchPositions, POLL_INTERVAL);
+        setInterval(fetchTimeline, POLL_INTERVAL * 5); // Update timeline less frequently
+    </script>
+</body>
+</html>

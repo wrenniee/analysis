@@ -1,0 +1,4 @@
+flask
+flask-cors
+requests
+# sqlite3 is built into Python, no need to install
