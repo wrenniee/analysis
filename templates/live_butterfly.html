@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🦋 Live Butterfly Strategy</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .panel h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card .label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        #recommendationsTable {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        #recommendationsTable th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        #recommendationsTable td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        #recommendationsTable tr:hover {
+            background: #f8f9ff;
+        }
+        
+        .buy-action {
+            color: #00c851;
+            font-weight: bold;
+        }
+        
+        .sell-action {
+            color: #ff3860;
+            font-weight: bold;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+        
+        .position-input {
+            display: grid;
+            grid-template-columns: 150px 100px 100px 80px;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        
+        .position-input input {
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .position-input button {
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+        
+        #positionsList {
+            margin-top: 15px;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-top: 20px;
+        }
+        
+        .error {
+            background: #ff3860;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .success {
+            background: #00c851;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🦋 Live Butterfly Strategy</h1>
+        
+        <!-- Setup Panel -->
+        <div class="panel">
+            <h2>⚙️ Setup</h2>
+            <p style="margin-bottom: 15px; color: rgba(255,255,255,0.8);">
+                <strong>Market:</strong> Elon Musk Tweets (Dec 9-16)<br>
+                <strong>Wallet:</strong> 0xBE50...D592
+            </p>
+            <div class="input-group">
+                <label>Total Capital ($)</label>
+                <input type="number" id="totalCapital" value="250" step="0.01">
+            </div>
+            <button onclick="fetchLiveData()">🔄 Fetch Live Prices & Positions</button>
+        </div>
+        
+        <!-- Current State Panel -->
+        <div class="panel">
+            <h2>📊 Current State</h2>
+            <div class="grid-2">
+                <div>
+                    <div class="input-group">
+                        <label>Current Tweet Count</label>
+                        <input type="number" id="currentTweets" value="0">
+                    </div>
+                    <div class="input-group">
+                        <label>Hours Elapsed (since Monday 12:00 AM EST)</label>
+                        <input type="number" id="hoursElapsed" value="0" step="0.1">
+                    </div>
+                </div>
+                <div>
+                    <div class="input-group">
+                        <label>Resolution Date/Time</label>
+                        <input type="datetime-local" id="resolutionTime" value="2024-12-16T23:59">
+                    </div>
+                    <div class="input-group">
+                        <label>Auto-calculate hours from now?</label>
+                        <button onclick="autoCalculateHours()">Calculate Hours</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Positions Panel -->
+        <div class="panel">
+            <h2>💼 Your Current Positions</h2>
+            <p style="margin-bottom: 15px; color: #666;">Add your current positions below:</p>
+            
+            <div class="position-input">
+                <input type="text" id="newBucket" placeholder="180-199">
+                <input type="number" id="newShares" placeholder="Shares">
+                <input type="number" id="newAvgPrice" placeholder="Avg ¢" step="0.1">
+                <button onclick="addPosition()">Add</button>
+            </div>
+            
+            <div id="positionsList"></div>
+        </div>
+        
+        <!-- Analysis Results -->
+        <div class="panel" id="resultsPanel" style="display: none;">
+            <h2>🎯 Live Analysis</h2>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="value" id="predictedCount">-</div>
+                    <div class="label">Predicted Final Count</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="hourlyRate">-</div>
+                    <div class="label">Tweets/Hour</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="currentPnL">-</div>
+                    <div class="label">Current P&L</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="hoursRemaining">-</div>
+                    <div class="label">Hours Remaining</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="probabilityChart"></canvas>
+            </div>
+            
+            <h3 style="margin-top: 30px; color: #667eea;">💡 Recommended Actions</h3>
+            <table id="recommendationsTable">
+                <thead>
+                    <tr>
+                        <th>Bucket</th>
+                        <th>Action</th>
+                        <th>Shares</th>
+                        <th>Amount</th>
+                        <th>Price</th>
+                        <th>Probability</th>
+                        <th>EV</th>
+                        <th>Current</th>
+                        <th>Optimal</th>
+                    </tr>
+                </thead>
+                <tbody id="recommendationsBody">
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px;">
+            <button onclick="runAnalysis()" style="font-size: 1.2em; padding: 15px 40px;">
+                🔄 RUN ANALYSIS
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        let positions = {};
+        let marketPrices = {};
+        let probabilityChart = null;
+        
+        function fetchLiveData() {
+            document.getElementById('resultsPanel').innerHTML = '<div class="loading">🔄 Fetching live market prices & positions...</div>';
+            document.getElementById('resultsPanel').style.display = 'block';
+            
+            // Fetch market prices
+            fetch('/api/market_data')
+            .then(r => r.json())
+            .then(priceData => {
+                marketPrices = priceData;
+                const priceCount = Object.keys(priceData).length;
+                console.log('Market prices:', marketPrices);
+                
+                // Fetch user positions
+                return fetch('/api/user_positions');
+            })
+            .then(r => r.json())
+            .then(posData => {
+                positions = posData;
+                const posCount = Object.keys(posData).length;
+                console.log('User positions:', positions);
+                
+                updatePositionsList();
+                
+                alert(`✅ Fetched ${Object.keys(marketPrices).length} prices & ${posCount} positions!`);
+                document.getElementById('resultsPanel').style.display = 'none';
+            })
+            .catch(err => {
+                alert('❌ Error: ' + err);
+                document.getElementById('resultsPanel').style.display = 'none';
+            });
+        }
+        
+        function addPosition() {
+            const bucket = document.getElementById('newBucket').value.trim();
+            const shares = parseInt(document.getElementById('newShares').value);
+            const avgPrice = parseFloat(document.getElementById('newAvgPrice').value);
+            
+            if (!bucket || !shares || !avgPrice) {
+                alert('Please fill all fields');
+                return;
+            }
+            
+            const invested = shares * (avgPrice / 100);
+            
+            if (!positions[bucket]) {
+                positions[bucket] = {shares: 0, invested: 0, avg_price: 0};
+            }
+            
+            const oldShares = positions[bucket].shares;
+            const oldInvested = positions[bucket].invested;
+            
+            positions[bucket].shares = oldShares + shares;
+            positions[bucket].invested = oldInvested + invested;
+            positions[bucket].avg_price = positions[bucket].invested / positions[bucket].shares;
+            
+            // Clear inputs
+            document.getElementById('newBucket').value = '';
+            document.getElementById('newShares').value = '';
+            document.getElementById('newAvgPrice').value = '';
+            
+            updatePositionsList();
+        }
+        
+        function removePosition(bucket) {
+            delete positions[bucket];
+            updatePositionsList();
+        }
+        
+        function updatePositionsList() {
+            const list = document.getElementById('positionsList');
+            
+            if (Object.keys(positions).length === 0) {
+                list.innerHTML = '<p style="color: #999; margin-top: 10px;">No positions yet</p>';
+                return;
+            }
+            
+            let html = '<table style="width: 100%; margin-top: 15px; border-collapse: collapse;">';
+            html += '<tr style="background: #f5f5f5;"><th style="padding: 8px; text-align: left;">Bucket</th><th>Shares</th><th>Avg Price</th><th>Invested</th><th>Action</th></tr>';
+            
+            for (const [bucket, pos] of Object.entries(positions)) {
+                const avgPriceCents = (pos.avg_price * 100).toFixed(1);
+                html += `<tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 8px;"><strong>${bucket}</strong></td>
+                    <td style="text-align: center;">${pos.shares}</td>
+                    <td style="text-align: center;">${avgPriceCents}¢</td>
+                    <td style="text-align: center;">$${pos.invested.toFixed(2)}</td>
+                    <td style="text-align: center;"><button onclick="removePosition('${bucket}')" style="padding: 5px 10px; font-size: 12px; background: #ff3860;">Remove</button></td>
+                </tr>`;
+            }
+            
+            html += '</table>';
+            list.innerHTML = html;
+        }
+        
+        function autoCalculateHours() {
+            const resolutionTime = new Date(document.getElementById('resolutionTime').value);
+            const now = new Date();
+            const diffMs = resolutionTime - now;
+            const hoursRemaining = diffMs / (1000 * 60 * 60);
+            const hoursElapsed = 168 - hoursRemaining;  // Full week is 168 hours
+            
+            document.getElementById('hoursElapsed').value = Math.max(0, hoursElapsed).toFixed(1);
+            alert(`✅ Calculated ${hoursElapsed.toFixed(1)} hours elapsed, ${hoursRemaining.toFixed(1)} hours remaining`);
+        }
+        
+        function runAnalysis() {
+            const currentTweets = parseInt(document.getElementById('currentTweets').value);
+            const hoursElapsed = parseFloat(document.getElementById('hoursElapsed').value);
+            const totalCapital = parseFloat(document.getElementById('totalCapital').value);
+            
+            const payload = {
+                current_tweets: currentTweets,
+                hours_elapsed: hoursElapsed,
+                total_capital: totalCapital,
+                positions: positions,
+                market_prices: marketPrices
+            };
+            
+            document.getElementById('resultsPanel').innerHTML = '<div class="loading">🔄 Analyzing strategy...</div>';
+            document.getElementById('resultsPanel').style.display = 'block';
+            
+            fetch('/api/analyze', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(data => {
+                displayResults(data);
+            })
+            .catch(err => {
+                document.getElementById('resultsPanel').innerHTML = `<div class="error">❌ Error: ${err}</div>`;
+            });
+        }
+        
+        function displayResults(data) {
+            // Update stats
+            document.getElementById('predictedCount').textContent = data.predicted_count.toFixed(0);
+            document.getElementById('hourlyRate').textContent = data.hourly_rate.toFixed(2);
+            document.getElementById('currentPnL').textContent = '$' + data.total_pnl.toFixed(2);
+            
+            const hoursElapsed = parseFloat(document.getElementById('hoursElapsed').value);
+            const hoursRemaining = 168 - hoursElapsed;
+            document.getElementById('hoursRemaining').textContent = hoursRemaining.toFixed(1);
+            
+            // Update recommendations table
+            const tbody = document.getElementById('recommendationsBody');
+            tbody.innerHTML = '';
+            
+            data.recommendations.forEach(rec => {
+                const actionClass = rec.action === 'BUY' ? 'buy-action' : 'sell-action';
+                const actionSymbol = rec.action === 'BUY' ? '🟢' : '🔴';
+                
+                const row = `<tr>
+                    <td><strong>${rec.bucket}</strong></td>
+                    <td class="${actionClass}">${actionSymbol} ${rec.action}</td>
+                    <td>${rec.shares}</td>
+                    <td>$${rec.amount.toFixed(2)}</td>
+                    <td>${rec.price_cents.toFixed(1)}¢</td>
+                    <td>${rec.probability.toFixed(1)}%</td>
+                    <td>${(rec.ev * 100).toFixed(1)}¢</td>
+                    <td>${rec.current_shares}</td>
+                    <td>${rec.optimal_shares}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+            
+            // Update probability chart
+            updateChart(data.probabilities, data.predicted_count);
+            
+            // Show panel (rebuild it first)
+            location.reload();
+        }
+        
+        function updateChart(probabilities, predicted) {
+            const ctx = document.getElementById('probabilityChart').getContext('2d');
+            
+            // Sort buckets
+            const buckets = Object.keys(probabilities).sort((a, b) => {
+                return parseInt(a.split('-')[0]) - parseInt(b.split('-')[0]);
+            });
+            
+            // Filter to relevant range
+            const relevantBuckets = buckets.filter(b => {
+                const start = parseInt(b.split('-')[0]);
+                return start >= 140 && start <= 300;
+            });
+            
+            const probs = relevantBuckets.map(b => probabilities[b] * 100);
+            
+            if (probabilityChart) {
+                probabilityChart.destroy();
+            }
+            
+            probabilityChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: relevantBuckets,
+                    datasets: [{
+                        label: 'Win Probability (%)',
+                        data: probs,
+                        backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Probability Distribution (Predicted: ${predicted.toFixed(0)} tweets)`,
+                            font: {size: 16, weight: 'bold'}
+                        },
+                        legend: {display: false}
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {display: true, text: 'Probability (%)'}
+                        },
+                        x: {
+                            title: {display: true, text: 'Tweet Count Bucket'}
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Initialize - auto-fetch on load
+        updatePositionsList();
+        fetchLiveData();
+    </script>
+</body>
+</html>

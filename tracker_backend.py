@@ -118,7 +118,7 @@ def save_snapshot_to_db(timestamp, positions, bucket_exposure, total_value, tota
     except Exception as e:
         print(f"Error saving to database: {e}")
 
-def load_history_from_db(limit=500):
+def load_history_from_db(limit=20000):
     """Load history from database"""
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -177,6 +177,7 @@ HTML_TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Butterfly Strategy Live Tracker</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -217,11 +218,67 @@ HTML_TEMPLATE = """
             backdrop-filter: blur(10px);
             border-radius: 15px;
             padding: 20px;
-            height: 400px;
+            height: 600px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        .chart-row {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            gap: 20px;
+        }
+        .chart-canvas-wrapper {
+            flex: 1;
+            min-width: 0;
             position: relative;
         }
-        .chart-container canvas {
-            max-height: 350px !important;
+        .custom-legend {
+            width: 160px;
+            flex-shrink: 0;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 0.85rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .legend-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .legend-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+        .legend-text {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .legend-item.hidden {
+            opacity: 0.5;
+            text-decoration: line-through;
         }
         .chart-container h2 { margin-bottom: 15px; font-size: 1.3rem; }
         .full-width { grid-column: 1 / -1; }
@@ -257,7 +314,7 @@ HTML_TEMPLATE = """
     <div class="container">
         <div class="header">
             <h1>🦋 Butterfly Strategy Live Tracker</h1>
-            <p>Monitoring Trader: <strong>Annica</strong> (0x689a...779e)</p>
+            <p>Monitoring Trader: <strong>BB</strong> (0x689a...779e)</p>
             <p>Market: Elon Musk Tweets (Dec 9-16, 2025)</p>
         </div>
         
@@ -286,13 +343,21 @@ HTML_TEMPLATE = """
         
         <div class="charts-grid">
             <div class="chart-container">
-                <h2>📊 Net Exposure by Bucket</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2>📊 Net Exposure by Bucket</h2>
+                    <div style="background: rgba(255,255,255,0.1); border-radius: 20px; padding: 2px; display: flex;">
+                        <button id="btnShares" onclick="setChartMode('shares')" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 5px 15px; border-radius: 15px; cursor: pointer; margin-right: 5px;">Shares</button>
+                        <button id="btnInvested" onclick="setChartMode('invested')" style="background: transparent; border: none; color: rgba(255,255,255,0.6); padding: 5px 15px; border-radius: 15px; cursor: pointer;">$ Invested</button>
+                    </div>
+                </div>
                 <canvas id="butterflyChart"></canvas>
             </div>
             
             <div class="chart-container">
-                <h2>📈 Position Size Timeline</h2>
-                <canvas id="timelineChart"></canvas>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin-bottom: 0;">📈 Position Size Timeline</h2>
+                </div>
+                <div id="timelineChart" style="width: 100%; height: 100%;"></div>
             </div>
             
             <div class="chart-container full-width">
@@ -310,7 +375,34 @@ HTML_TEMPLATE = """
     
     <script>
         const POLL_INTERVAL = 2000;
-        let butterflyChart, timelineChart;
+        let butterflyChart;
+        let currentChartMode = 'shares'; // 'shares' or 'invested'
+        let lastPositions = []; // Store last positions for mode switching
+        
+        function setChartMode(mode) {
+            currentChartMode = mode;
+            
+            // Update buttons
+            const btnShares = document.getElementById('btnShares');
+            const btnInvested = document.getElementById('btnInvested');
+            
+            if (mode === 'shares') {
+                btnShares.style.background = 'rgba(255,255,255,0.2)';
+                btnShares.style.color = 'white';
+                btnInvested.style.background = 'transparent';
+                btnInvested.style.color = 'rgba(255,255,255,0.6)';
+            } else {
+                btnInvested.style.background = 'rgba(255,255,255,0.2)';
+                btnInvested.style.color = 'white';
+                btnShares.style.background = 'transparent';
+                btnShares.style.color = 'rgba(255,255,255,0.6)';
+            }
+            
+            // Update chart if we have data
+            if (lastPositions.length > 0) {
+                updateButterflyChart(lastPositions);
+            }
+        }
         
         function initCharts() {
             const butterflyCtx = document.getElementById('butterflyChart').getContext('2d');
@@ -337,43 +429,29 @@ HTML_TEMPLATE = """
                 }
             });
             
-            const timelineCtx = document.getElementById('timelineChart').getContext('2d');
-            timelineChart = new Chart(timelineCtx, {
-                type: 'line',
-                data: { labels: [], datasets: [] },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
-                    scales: {
-                        y: { 
-                            beginAtZero: true, 
-                            ticks: { color: '#fff' }, 
-                            grid: { color: 'rgba(255,255,255,0.1)' }
-                        },
-                        x: { 
-                            ticks: { 
-                                color: '#fff',
-                                maxRotation: 45,
-                                minRotation: 45
-                            }, 
-                            grid: { color: 'rgba(255,255,255,0.1)' }
-                        }
-                    },
-                    plugins: { 
-                        legend: { 
-                            labels: { color: '#fff' },
-                            maxHeight: 100
-                        }
-                    },
-                    animation: {
-                        duration: 0 // Disable animation to prevent growing
-                    }
+            // Initialize Plotly Timeline
+            Plotly.newPlot('timelineChart', [], {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#fff' },
+                xaxis: { 
+                    gridcolor: 'rgba(255,255,255,0.1)',
+                    zerolinecolor: 'rgba(255,255,255,0.1)'
+                },
+                yaxis: { 
+                    gridcolor: 'rgba(255,255,255,0.1)',
+                    zerolinecolor: 'rgba(255,255,255,0.1)'
+                },
+                margin: { t: 10, l: 40, r: 20, b: 40 },
+                showlegend: true,
+                legend: {
+                    x: 1.02,
+                    y: 1,
+                    bgcolor: 'rgba(0,0,0,0.2)',
+                    bordercolor: 'rgba(255,255,255,0.1)',
+                    borderwidth: 1
                 }
-            });
+            }, { responsive: true, displayModeBar: true });
         }
         
         async function fetchPositions() {
@@ -404,6 +482,7 @@ HTML_TEMPLATE = """
         }
         
         function updateUI(positions) {
+            lastPositions = positions; // Store for mode switching
             document.getElementById('activePositions').textContent = positions.length;
             
             const totalValue = positions.reduce((sum, pos) => sum + pos.currentValue, 0);
@@ -433,8 +512,20 @@ HTML_TEMPLATE = """
             const bucketMap = {};
             positions.forEach(pos => {
                 const bucket = pos.title.match(/(\\d+-\\d+|\\d+\\+)/)?.[0] || pos.title;
-                const exposure = pos.outcome === 'Yes' ? pos.size : -pos.size;
-                bucketMap[bucket] = (bucketMap[bucket] || 0) + exposure;
+                
+                let value = 0;
+                if (currentChartMode === 'shares') {
+                    // Net exposure in shares
+                    value = pos.outcome === 'Yes' ? pos.size : -pos.size;
+                } else {
+                    // Invested amount (always positive for long, negative for short to show direction)
+                    // Or should invested always be positive? 
+                    // Let's keep the directionality: Long = +Invested, Short = -Invested
+                    const invested = pos.invested || 0;
+                    value = pos.outcome === 'Yes' ? invested : -invested;
+                }
+                
+                bucketMap[bucket] = (bucketMap[bucket] || 0) + value;
             });
             
             const sorted = Object.entries(bucketMap).sort((a, b) => {
@@ -443,9 +534,10 @@ HTML_TEMPLATE = """
             });
             
             butterflyChart.data.labels = sorted.map(([bucket]) => bucket);
-            butterflyChart.data.datasets[0].data = sorted.map(([, exposure]) => exposure);
-            butterflyChart.data.datasets[0].backgroundColor = sorted.map(([, exposure]) => 
-                exposure >= 0 ? 'rgba(0, 255, 136, 0.6)' : 'rgba(255, 56, 96, 0.6)'
+            butterflyChart.data.datasets[0].data = sorted.map(([, val]) => val);
+            butterflyChart.data.datasets[0].label = currentChartMode === 'shares' ? 'Net Exposure (Shares)' : 'Net Invested ($)';
+            butterflyChart.data.datasets[0].backgroundColor = sorted.map(([, val]) => 
+                val >= 0 ? 'rgba(0, 255, 136, 0.6)' : 'rgba(255, 56, 96, 0.6)'
             );
             butterflyChart.update();
         }
@@ -453,20 +545,73 @@ HTML_TEMPLATE = """
         function updateTimelineChart(data) {
             if (!data.timestamps || data.timestamps.length === 0) return;
             
-            const allBuckets = Object.keys(data.buckets);
-            const datasets = allBuckets.slice(0, 8).map((bucket, idx) => ({
-                label: bucket,
-                data: data.buckets[bucket],
-                borderColor: `hsl(${idx * 45}, 70%, 60%)`,
-                backgroundColor: `hsla(${idx * 45}, 70%, 60%, 0.1)`,
-                tension: 0.4,
-                fill: false
-            }));
+            const allBuckets = Object.keys(data.buckets).sort((a, b) => {
+                const getNum = str => parseInt(str.split('-')[0]) || 1000;
+                return getNum(a) - getNum(b);
+            });
             
-            // Clear existing data and set new data
-            timelineChart.data.labels = data.timestamps.map(ts => new Date(ts).toLocaleTimeString());
-            timelineChart.data.datasets = datasets;
-            timelineChart.update('none'); // 'none' disables animation for smoother updates
+            // Get existing visibility states
+            const graphDiv = document.getElementById('timelineChart');
+            const visibilityMap = {};
+            if (graphDiv && graphDiv.data) {
+                graphDiv.data.forEach(trace => {
+                    visibilityMap[trace.name] = trace.visible;
+                });
+            }
+
+            const traces = allBuckets.map((bucket, idx) => {
+                // Calculate color based on index (Blue -> Green -> Red)
+                // Map index 0..N to Hue 240..0
+                const total = allBuckets.length;
+                const hue = total > 1 ? 240 - (idx / (total - 1)) * 240 : 240;
+                
+                const trace = {
+                    x: data.timestamps,
+                    y: data.buckets[bucket],
+                    name: bucket,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: {
+                        color: `hsl(${hue}, 70%, 50%)`,
+                        width: 2
+                    }
+                };
+
+                // Restore visibility state if it exists
+                if (visibilityMap[bucket] !== undefined) {
+                    trace.visible = visibilityMap[bucket];
+                }
+
+                return trace;
+            });
+            
+            const layout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#fff' },
+                xaxis: { 
+                    gridcolor: 'rgba(255,255,255,0.1)',
+                    zerolinecolor: 'rgba(255,255,255,0.1)',
+                    title: 'Time'
+                },
+                yaxis: { 
+                    gridcolor: 'rgba(255,255,255,0.1)',
+                    zerolinecolor: 'rgba(255,255,255,0.1)',
+                    title: 'Exposure'
+                },
+                margin: { t: 10, l: 40, r: 20, b: 40 },
+                showlegend: true,
+                legend: {
+                    x: 1.02,
+                    y: 1,
+                    bgcolor: 'rgba(0,0,0,0.2)',
+                    bordercolor: 'rgba(255,255,255,0.1)',
+                    borderwidth: 1
+                },
+                datarevision: new Date().getTime() // Force update
+            };
+            
+            Plotly.react('timelineChart', traces, layout);
         }
         
         function updatePositionList(positions) {
@@ -506,7 +651,7 @@ HTML_TEMPLATE = """
 </html>
 """
 
-USER_ADDRESS = '0x689ae12e11aa489adb3605afd8f39040ff52779e'
+USER_ADDRESS = '0xBE50Ea246B34b58ef36043aa34CAA8b3c1F2D592'
 TARGET_SLUG = 'elon-musk-of-tweets-december-9-december-16'
 API_ENDPOINT = 'https://data-api.polymarket.com/positions'
 POLL_INTERVAL = 5  # seconds
@@ -605,8 +750,8 @@ def process_positions(positions):
     
     position_history.append(snapshot)
     
-    # Keep last 500 snapshots in memory
-    if len(position_history) > 500:
+    # Keep last 20000 snapshots in memory (approx 27 hours at 5s interval)
+    if len(position_history) > 20000:
         position_history.pop(0)
     
     # Save to database for persistence
@@ -704,21 +849,31 @@ def get_timeline():
     if not position_history:
         return jsonify({'error': 'No data available'}), 404
     
+    # Downsample if too many points to prevent browser lag
+    MAX_POINTS = 1000
+    data_to_send = position_history
+    if len(position_history) > MAX_POINTS:
+        step = len(position_history) // MAX_POINTS
+        # Ensure we include the last point
+        data_to_send = position_history[::step]
+        if data_to_send[-1] != position_history[-1]:
+            data_to_send.append(position_history[-1])
+    
     # Extract all unique buckets
     all_buckets = set()
-    for snapshot in position_history:
+    for snapshot in data_to_send:
         all_buckets.update(snapshot['buckets'].keys())
     
     # Build timeline data
     timeline = {
-        'timestamps': [s['timestamp'] for s in position_history],
+        'timestamps': [s['timestamp'] for s in data_to_send],
         'buckets': {}
     }
     
     for bucket in all_buckets:
         timeline['buckets'][bucket] = [
             s['buckets'].get(bucket, {}).get('exposure', 0) 
-            for s in position_history
+            for s in data_to_send
         ]
     
     return jsonify(timeline)
@@ -777,7 +932,7 @@ if __name__ == '__main__':
     
     # Load previous history from database
     print("Loading history from database...")
-    loaded_history = load_history_from_db(limit=500)
+    loaded_history = load_history_from_db(limit=20000)
     if loaded_history:
         position_history.extend(loaded_history)
         print(f"✅ Loaded {len(loaded_history)} snapshots from database")

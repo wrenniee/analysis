@@ -1,4 +1,7 @@
 flask
 flask-cors
 requests
+py-clob-client
+matplotlib
+numpy
 # sqlite3 is built into Python, no need to install

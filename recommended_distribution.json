@@ -1,0 +1,125 @@
+{
+  "analysis_date": "2025-12-07T04:13:18.747320",
+  "historical_mean": 334.5882352941176,
+  "historical_median": 324.5,
+  "historical_std": 220.25508175309437,
+  "sample_size": 34,
+  "date_range": "2024-05-31 to 2025-04-11",
+  "bucket_frequency": {
+    "80-89": 2,
+    "70-79": 3,
+    "40-49 ": 1,
+    "50-59": 1,
+    "100-109": 1,
+    "80-99": 1,
+    "225-249": 2,
+    "200-224": 2,
+    "175-199": 1,
+    "475-499": 2,
+    "400-424": 4,
+    "300-324": 1,
+    "650-674": 2,
+    "400-449": 1,
+    "325-349": 2,
+    "275-299": 1,
+    "850-874": 1,
+    "600-649": 1,
+    "750-799": 1,
+    "550-599": 1,
+    "500-524": 1,
+    "425-449": 1,
+    "180-189": 1
+  },
+  "recommended_buckets": [
+    {
+      "bucket": "220-239",
+      "investment": 14.44,
+      "probability": 89.2,
+      "historical_hits": 0
+    },
+    {
+      "bucket": "240-259",
+      "investment": 14.44,
+      "probability": 92.8,
+      "historical_hits": 0
+    },
+    {
+      "bucket": "260-279",
+      "investment": 14.44,
+      "probability": 95.7,
+      "historical_hits": 0
+    },
+    {
+      "bucket": "280-299",
+      "investment": 14.44,
+      "probability": 97.9,
+      "historical_hits": 0
+    },
+    {
+      "bucket": "300-319",
+      "investment": 14.44,
+      "probability": 99.4,
+      "historical_hits": 0
+    },
+    {
+      "bucket": "320-339",
+      "investment": 14.44,
+      "probability": 100.0,
+      "historical_hits": 0
+    },
+    {
+      "bucket": "340-359",
+      "investment": 14.44,
+      "probability": 99.8,
+      "historical_hits": 0
+    },
+    {
+      "bucket": "360-379",
+      "investment": 14.44,
+      "probability": 98.8,
+      "historical_hits": 0
+    },
+    {
+      "bucket": "380-399",
+      "investment": 14.44,
+      "probability": 96.9,
+      "historical_hits": 0
+    },
+    {
+      "bucket": "400-419",
+      "investment": 14.44,
+      "probability": 94.4,
+      "historical_hits": 0
+    },
+    {
+      "bucket": "420-439",
+      "investment": 14.44,
+      "probability": 91.1,
+      "historical_hits": 0
+    },
+    {
+      "bucket": "120-139",
+      "investment": 9.03,
+      "probability": 64.8,
+      "historical_hits": 0
+    },
+    {
+      "bucket": "140-159",
+      "investment": 9.03,
+      "probability": 70.3,
+      "historical_hits": 0
+    },
+    {
+      "bucket": "160-179",
+      "investment": 9.03,
+      "probability": 75.5,
+      "historical_hits": 0
+    },
+    {
+      "bucket": "180-199",
+      "investment": 9.03,
+      "probability": 80.5,
+      "historical_hits": 0
+    }
+  ]
+}
