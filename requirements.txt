@@ -4,4 +4,8 @@ requests
 py-clob-client
 matplotlib
 numpy
+streamlit
+pandas
+requests
+plotly
 # sqlite3 is built into Python, no need to install

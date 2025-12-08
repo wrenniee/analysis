@@ -652,7 +652,7 @@ HTML_TEMPLATE = """
 """
 
 USER_ADDRESS = '0xBE50Ea246B34b58ef36043aa34CAA8b3c1F2D592'
-TARGET_SLUG = 'elon-musk-of-tweets-december-9-december-16'
+TARGET_SLUG = 'elon-musk-of-tweets-december-5-december-12'
 API_ENDPOINT = 'https://data-api.polymarket.com/positions'
 POLL_INTERVAL = 5  # seconds
 
